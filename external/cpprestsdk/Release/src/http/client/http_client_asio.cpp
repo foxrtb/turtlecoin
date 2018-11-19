@@ -1787,7 +1787,7 @@ private:
             assert(!m_ctx.expired());
             m_state = started;
 
-            m_timer.expires_from_now(m_duration);
+            m_timer.expires_from_now(std::chrono::microseconds(m_duration.count()));
             auto ctx = m_ctx;
             m_timer.async_wait([ctx AND_CAPTURE_MEMBER_FUNCTION_POINTERS](const boost::system::error_code& ec) {
                 handle_timeout(ec, ctx);
