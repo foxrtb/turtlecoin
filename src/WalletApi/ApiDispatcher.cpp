@@ -31,7 +31,7 @@ ApiDispatcher::ApiDispatcher(
     using namespace CryptoPP;
 
     /* Using SHA256 as the algorithm */
-    PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
+    CryptoPP::PKCS5_PBKDF2_HMAC<CryptoPP::SHA256> pbkdf2;
 
     /* Salt of all zeros (this is bad...) */
     byte salt[16] = {};
