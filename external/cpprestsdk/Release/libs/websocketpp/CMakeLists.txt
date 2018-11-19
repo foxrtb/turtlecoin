@@ -11,6 +11,7 @@ set (WEBSOCKETPP_INCLUDE ${WEBSOCKETPP_ROOT}/websocketpp)
 set (WEBSOCKETPP_BUILD_ROOT ${CMAKE_CURRENT_BINARY_DIR})
 set (WEBSOCKETPP_BIN ${WEBSOCKETPP_BUILD_ROOT}/bin)
 set (WEBSOCKETPP_LIB ${WEBSOCKETPP_BUILD_ROOT}/lib)
+set (BOOST_ASIO_HAS_STD_CHRONO TRUE)
 
 # CMake install step prefix. I assume linux users want the prefix to
 # be the default /usr or /usr/local so this is only adjusted on Windows.
