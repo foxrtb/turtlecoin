@@ -42,6 +42,7 @@ function(cpprest_find_openssl)
       set(_OPENSSL_VERSION "")
     endif()
     find_package(OpenSSL 1.0.0 REQUIRED)
+    set(OPENSSL_USE_STATIC_LIBS TRUE)
 
     INCLUDE(CheckCXXSourceCompiles)
     set(CMAKE_REQUIRED_INCLUDES "${OPENSSL_INCLUDE_DIR}")

@@ -23,19 +23,7 @@ set(CPPREST_EXPORT_DIR cpprestsdk CACHE STRING "Directory to install CMake confi
 set(CPPREST_INSTALL_HEADERS ON CACHE BOOL "Install header files.")
 set(CPPREST_INSTALL ON CACHE BOOL "Add install commands.")
 
-if(IOS OR ANDROID)
-  set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
-else()
-  set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries")
-endif()
-
-if(IOS OR ANDROID OR WINDOWS_STORE OR WINDOWS_PHONE)
-  set(BUILD_TESTS OFF CACHE BOOL "Build tests.")
-  set(BUILD_SAMPLES OFF CACHE BOOL "Build sample applications.")
-else()
-  set(BUILD_TESTS ON CACHE BOOL "Build tests.")
-  set(BUILD_SAMPLES ON CACHE BOOL "Build sample applications.")
-endif()
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries")
 
 if(WIN32)
   set(CMAKE_DEBUG_POSTFIX "d" CACHE STRING "Default filename postfix for libraries under configuration DEBUG")
@@ -53,11 +41,7 @@ else()
   set(CPPREST_ABI_TAG "" CACHE STRING "Postfix tag for the cpprest abi")
 endif()
 
-if(ANDROID)
-  set(Boost_USE_STATIC_LIBS ON CACHE BOOL "Link against boost statically.")
-else()
-  set(Boost_USE_STATIC_LIBS OFF CACHE BOOL "Link against boost statically.")
-endif()
+set(Boost_USE_STATIC_LIBS ON CACHE BOOL "Link against boost statically.")
 
 include(cmake/cpprest_find_boost.cmake)
 include(cmake/cpprest_find_zlib.cmake)
@@ -204,37 +188,4 @@ if(NOT PARENT_DIR STREQUAL "")
   set(Casablanca_LIBRARIES ${Casablanca_LIBRARIES} PARENT_SCOPE)
 endif()
 
-# Finally, the tests all use the same style declaration to build themselves, so we use a function
-function(add_casablanca_test NAME SOURCES_VAR)
-  add_library(${NAME} ${TEST_LIBRARY_TARGET_TYPE} ${${SOURCES_VAR}})
-  message("-- Added test library ${NAME}")
-  if(TEST_LIBRARY_TARGET_TYPE STREQUAL "OBJECT")
-    foreach(_dep cpprest common_utilities unittestpp)
-      target_include_directories(${NAME} PRIVATE $<TARGET_PROPERTY:${_dep},INTERFACE_INCLUDE_DIRECTORIES>)
-      target_compile_definitions(${NAME} PRIVATE $<TARGET_PROPERTY:${_dep},INTERFACE_COMPILE_DEFINITIONS>)
-    endforeach()
-  else()
-    target_link_libraries(${NAME} PRIVATE
-      cpprest
-      common_utilities
-      unittestpp
-      ${ANDROID_LIBS}
-    )
-    if (BUILD_SHARED_LIBS)
-      add_test(NAME ${NAME}
-        WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-        COMMAND test_runner $<TARGET_FILE_NAME:${NAME}>
-      )
-    endif()
-  endif()
-endfunction()
-
 add_subdirectory(src)
-
-if(BUILD_TESTS)
-  add_subdirectory(tests)
-endif()
-
-if(BUILD_SAMPLES)
-  add_subdirectory(samples)
-endif()

@@ -12,6 +12,7 @@ function(cpprest_find_zlib)
       find_package(ZLIB REQUIRED)
     endif()
   else()
+    SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
     find_package(ZLIB REQUIRED)
   endif()
 
