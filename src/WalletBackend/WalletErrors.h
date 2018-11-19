@@ -196,6 +196,8 @@ class WalletError
 
         std::string getErrorMessage() const;
 
+        WalletErrorCode getErrorCode() const;
+
         bool operator==(const WalletErrorCode code) const
         {
             return code == m_errorCode;

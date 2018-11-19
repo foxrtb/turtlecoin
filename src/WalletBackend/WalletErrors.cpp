@@ -232,3 +232,8 @@ std::string WalletError::getErrorMessage() const
         /* No default case so the compiler warns us if we missed one */
     }
 }
+
+WalletErrorCode WalletError::getErrorCode() const
+{
+    return m_errorCode;
+}
