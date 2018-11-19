@@ -63,15 +63,45 @@ class ApiDispatcher
 
         /* Verifies that the request has the correct X-API-KEY, and sends a 401
            if it is not. */
-        bool checkAuthenticated(const web::http::http_request &request);
+        bool checkAuthenticated(const web::http::http_request &request) const;
 
         /* Opens a wallet */
         void openWallet(
             const web::http::http_request &request,
             const nlohmann::json body);
 
+        void keyImportWallet(
+            const web::http::http_request &request,
+            const nlohmann::json body);
+
+        void seedImportWallet(
+            const web::http::http_request &request,
+            const nlohmann::json body);
+
+        void importViewWallet(
+            const web::http::http_request &request,
+            const nlohmann::json body);
+
+        void createWallet(
+            const web::http::http_request &request,
+            const nlohmann::json body);
+
         /* Check we don't already have a wallet open, returns 403 if we do */
-        bool isAlreadyOpen(const web::http::http_request &request);
+        bool isWalletAlreadyOpen(const web::http::http_request &request) const;
+
+        /* Check we have a wallet open, returns 403 if we don't */
+        bool isWalletClosed(const web::http::http_request &request) const;
+
+        /* Extracts {host, port, filename, password}, from body */
+        std::tuple<std::string, uint16_t, std::string, std::string>
+            getDefaultWalletParams(const nlohmann::json body) const;
+
+        /* Writes the error message to the response */
+        void writeError(
+            const web::http::http_request &request,
+            const WalletError error) const;
+
+        void closeWallet();
 
         //////////////////////////////
         /* Private member variables */
@@ -82,4 +112,6 @@ class ApiDispatcher
         web::http::experimental::listener::http_listener m_server;
 
         std::string m_hashedPassword;
+
+        std::mutex m_mutex;
 };

@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
     loggerGroup.addLogger(consoleLogger);
 
     System::Dispatcher dispatcher;
-    Miner::MinerManager app(dispatcher, config, loggerGroup);
+    Miner::MinerManager app(dispatcher, config, std::make_shared<Logging::LoggerGroup>(loggerGroup));
 
     app.start();
   } catch (std::exception& e) {

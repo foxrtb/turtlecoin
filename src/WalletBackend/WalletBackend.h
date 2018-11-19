@@ -286,14 +286,6 @@ class WalletBackend
         /* The daemon connection */
         std::shared_ptr<CryptoNote::NodeRpcProxy> m_daemon;
 
-        /* The log manager */
-        std::shared_ptr<Logging::LoggerManager> m_logManager;
-
-        /* The logger instance (Need to keep around because the daemon
-           constructor takes a reference to the variable, so if it goes out
-           of scope we segfault... :facepalm: */
-        std::shared_ptr<Logging::LoggerRef> m_logger;
-
         /* We use a shared pointer here, because we start the thread in the
            class, with the class as a context, hence, when we go to move the
            WalletSynchronizer class, the thread gets moved() across, but it

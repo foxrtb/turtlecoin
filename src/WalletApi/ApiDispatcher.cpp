@@ -16,6 +16,8 @@
 
 #include <WalletApi/Constants.h>
 
+#include <WalletBackend/JsonSerialization.h>
+
 using namespace web::http;
 using namespace web::http::experimental::listener;
 
@@ -132,7 +134,6 @@ void ApiDispatcher::middleware(http_request &request)
     catch (const nlohmann::json::exception &e)
     {
         std::cout << "Threw error parsing request: " << e.what() << std::endl;
-        request.reply(status_codes::BadRequest);
     }
     catch (const std::exception &e)
     {
@@ -146,19 +147,16 @@ void ApiDispatcher::middleware(http_request &request)
     }
 
     /* Reply if we threw an exception or something unexpected happened */
-    request._reply_if_not_already(status_codes::InternalError);
+    request._reply_if_not_already(status_codes::BadRequest);
 }
 
 void ApiDispatcher::getRequestHandler(
     const http_request &request,
     const std::vector<std::string> path)
 {
-    if (true)
+    if (isWalletClosed(request))
     {
-    }
-    else
-    {
-        request.reply(status_codes::BadRequest);
+        return;
     }
 }
 
@@ -167,13 +165,35 @@ void ApiDispatcher::postRequestHandler(
     const std::vector<std::string> path,
     const nlohmann::json body)
 {
-    if (path.size() == 2 && path[0] == "wallet" && path[1] == "open")
+    if (path.size() == 2 && path[0] == "wallet")
     {
-        openWallet(request, body);
-    }
-    else
-    {
-        request.reply(status_codes::BadRequest);
+        std::scoped_lock lock(m_mutex);
+
+        if (isWalletAlreadyOpen(request))
+        {
+            return;
+        }
+
+        if (path[1] == "open")
+        {
+            openWallet(request, body);
+        }
+        else if (path[1] == "keyimport")
+        {
+            keyImportWallet(request, body);
+        }
+        else if (path[1] == "seedimport")
+        {
+            seedImportWallet(request, body);
+        }
+        else if (path[1] == "viewkeyimport")
+        {
+            importViewWallet(request, body);
+        }
+        else if (path[1] == "create")
+        {
+            createWallet(request, body);
+        }
     }
 }
 
@@ -182,12 +202,9 @@ void ApiDispatcher::putRequestHandler(
     const std::vector<std::string> path,
     const nlohmann::json body)
 {
-    if (true)
+    if (isWalletClosed(request))
     {
-    }
-    else
-    {
-        request.reply(status_codes::BadRequest);
+        return;
     }
 }
 
@@ -195,16 +212,26 @@ void ApiDispatcher::deleteRequestHandler(
     const http_request &request,
     const std::vector<std::string> path)
 {
-    if (true)
+    if (isWalletClosed(request))
     {
+        return;
     }
-    else
+
+    if (path.size() == 1 && path[0] == "wallet")
     {
-        request.reply(status_codes::BadRequest);
+        std::scoped_lock lock(m_mutex);
+
+        /* Need to check here again, could have changed between aquiring mutex */
+        if (isWalletClosed(request))
+        {
+            return;
+        }
+
+        closeWallet();
     }
 }
 
-bool ApiDispatcher::checkAuthenticated(const http_request &request)
+bool ApiDispatcher::checkAuthenticated(const http_request &request) const
 {
     const http_headers &headers = request.headers();
 
@@ -235,11 +262,146 @@ void ApiDispatcher::openWallet(
     const http_request &request,
     const nlohmann::json body)
 {
-    if (isAlreadyOpen(request))
+    const auto [daemonHost, daemonPort, filename, password] = getDefaultWalletParams(body);
+
+    WalletError error;
+
+    std::tie(error, m_walletBackend) = WalletBackend::openWallet(
+        filename, password, daemonHost, daemonPort
+    );
+
+    if (error)
     {
-        return;
+        writeError(request, error);
+    }
+    else
+    {
+        request.reply(status_codes::OK);
+    }
+}
+
+void ApiDispatcher::keyImportWallet(
+    const http_request &request,
+    const nlohmann::json body)
+{
+    const auto [daemonHost, daemonPort, filename, password] = getDefaultWalletParams(body);
+
+    Crypto::SecretKey privateViewKey = body.at("privateViewKey").get<Crypto::SecretKey>();
+    Crypto::SecretKey privateSpendKey = body.at("privateSpendKey").get<Crypto::SecretKey>();
+
+    uint64_t scanHeight = 0;
+
+    if (body.find("scanHeight") != body.end())
+    {
+        scanHeight = body.at("scanHeight").get<uint64_t>();
     }
 
+    WalletError error;
+
+    std::tie(error, m_walletBackend) = WalletBackend::importWalletFromKeys(
+        privateSpendKey, privateViewKey, filename, password, scanHeight,
+        daemonHost, daemonPort
+    );
+
+    if (error)
+    {
+        writeError(request, error);
+    }
+    else
+    {
+        request.reply(status_codes::OK);
+    }
+}
+
+void ApiDispatcher::seedImportWallet(
+    const http_request &request,
+    const nlohmann::json body)
+{
+    const auto [daemonHost, daemonPort, filename, password] = getDefaultWalletParams(body);
+
+    std::string mnemonicSeed = body.at("mnemonicSeed").get<std::string>();
+
+    uint64_t scanHeight = 0;
+
+    if (body.find("scanHeight") != body.end())
+    {
+        scanHeight = body.at("scanHeight").get<uint64_t>();
+    }
+
+    WalletError error;
+
+    std::tie(error, m_walletBackend) = WalletBackend::importWalletFromSeed(
+        mnemonicSeed, filename, password, scanHeight, daemonHost, daemonPort
+    );
+
+    if (error)
+    {
+        writeError(request, error);
+    }
+    else
+    {
+        request.reply(status_codes::OK);
+    }
+}
+
+void ApiDispatcher::importViewWallet(
+    const http_request &request,
+    const nlohmann::json body)
+{
+    const auto [daemonHost, daemonPort, filename, password] = getDefaultWalletParams(body);
+
+    std::string address = body.at("address").get<std::string>();
+    Crypto::SecretKey privateViewKey = body.at("privateViewKey").get<Crypto::SecretKey>();
+
+    uint64_t scanHeight = 0;
+
+    if (body.find("scanHeight") != body.end())
+    {
+        scanHeight = body.at("scanHeight").get<uint64_t>();
+    }
+
+    WalletError error;
+
+    std::tie(error, m_walletBackend) = WalletBackend::importViewWallet(
+        privateViewKey, address, filename, password, scanHeight,
+        daemonHost, daemonPort
+    );
+
+    if (error)
+    {
+        writeError(request, error);
+    }
+    else
+    {
+        request.reply(status_codes::OK);
+    }
+}
+
+void ApiDispatcher::createWallet(
+    const http_request &request,
+    const nlohmann::json body)
+{
+    const auto [daemonHost, daemonPort, filename, password] = getDefaultWalletParams(body);
+
+    WalletError error;
+
+    std::tie(error, m_walletBackend) = WalletBackend::createWallet(
+        filename, password, daemonHost, daemonPort
+    );
+
+    if (error)
+    {
+        writeError(request, error);
+    }
+    else
+    {
+        request.reply(status_codes::OK);
+    }
+}
+
+std::tuple<std::string, uint16_t, std::string, std::string>
+    ApiDispatcher::getDefaultWalletParams(const nlohmann::json body) const
+{
     std::string daemonHost = "127.0.0.1";
     uint16_t daemonPort = CryptoNote::RPC_DEFAULT_PORT;
 
@@ -256,28 +418,10 @@ void ApiDispatcher::openWallet(
         daemonPort = body.at("daemonPort").get<uint16_t>();
     }
 
-    WalletError error;
-
-    std::tie(error, m_walletBackend) = WalletBackend::openWallet(
-        filename, password, daemonHost, daemonPort
-    );
-
-    if (error)
-    {
-        nlohmann::json j;
-
-        j["errorCode"] = error.getErrorCode();
-        j["errorMessage"] = error.getErrorMessage();
-
-        request.reply(status_codes::BadRequest, j.dump());
-    }
-    else
-    {
-        request.reply(status_codes::OK);
-    }
+    return {daemonHost, daemonPort, filename, password};
 }
 
-bool ApiDispatcher::isAlreadyOpen(const http_request &request)
+bool ApiDispatcher::isWalletAlreadyOpen(const http_request &request) const
 {
     if (m_walletBackend != nullptr)
     {
@@ -289,4 +433,35 @@ bool ApiDispatcher::isAlreadyOpen(const http_request &request)
     }
 
     return false;
+}
+
+bool ApiDispatcher::isWalletClosed(const http_request &request) const
+{
+    if (m_walletBackend != nullptr)
+    {
+        return false;
+    }
+
+    std::cout << "Client requested to modify a wallet, whilst no wallet is open" << std::endl;
+
+    request.reply(status_codes::Forbidden);
+
+    return true;
+}
+
+void ApiDispatcher::writeError(
+    const http_request &request,
+    const WalletError error) const
+{
+    nlohmann::json j;
+
+    j["errorCode"] = error.getErrorCode();
+    j["errorMessage"] = error.getErrorMessage();
+
+    request.reply(status_codes::BadRequest, j.dump());
+}
+
+void ApiDispatcher::closeWallet()
+{
+    m_walletBackend = nullptr;
 }

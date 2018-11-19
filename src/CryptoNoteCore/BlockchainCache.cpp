@@ -98,7 +98,7 @@ bool serialize(PackedOutIndex& value, Common::StringView name, CryptoNote::ISeri
   return serializer(value.packedValue, name);
 }
 
-BlockchainCache::BlockchainCache(const std::string& filename, const Currency& currency, Logging::ILogger& logger_,
+BlockchainCache::BlockchainCache(const std::string& filename, const Currency& currency, std::shared_ptr<Logging::ILogger> logger_,
                                  IBlockchainCache* parent, uint32_t splitBlockIndex)
     : filename(filename), currency(currency), logger(logger_, "BlockchainCache"), parent(parent), storage(new BlockchainStorage(100)) {
   if (parent == nullptr) {

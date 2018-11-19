@@ -104,12 +104,6 @@ WalletError checkNewWalletFilename(std::string filename)
 /* Constructor */
 WalletBackend::WalletBackend()
 {
-    m_logManager = std::make_shared<Logging::LoggerManager>();
-
-    m_logger = std::make_shared<Logging::LoggerRef>(
-        *m_logManager, "WalletBackend"
-    );
-
     m_eventHandler = std::make_shared<EventHandler>();
 
     /* Remember to correctly initialize the daemon - 
@@ -142,15 +136,7 @@ WalletBackend::WalletBackend(
     m_filename(filename),
     m_password(password)
 {
-    m_logManager = std::make_shared<Logging::LoggerManager>();
-
-    m_logger = std::make_shared<Logging::LoggerRef>(
-        *m_logManager, "WalletBackend"
-    );
-
-    m_daemon = std::make_shared<CryptoNote::NodeRpcProxy>(
-        daemonHost, daemonPort, m_logger->getLogger()
-    );
+    m_daemon = std::make_shared<CryptoNote::NodeRpcProxy>(daemonHost, daemonPort);
 
     /* Generate the address from the two private keys */
     std::string address = Utilities::privateKeysToAddress(
@@ -177,15 +163,7 @@ WalletBackend::WalletBackend(
     m_filename(filename),
     m_password(password)
 {
-    m_logManager = std::make_shared<Logging::LoggerManager>();
-
-    m_logger = std::make_shared<Logging::LoggerRef>(
-        *m_logManager, "WalletBackend"
-    );
-
-    m_daemon = std::make_shared<CryptoNote::NodeRpcProxy>(
-        daemonHost, daemonPort, m_logger->getLogger()
-    );
+    m_daemon = std::make_shared<CryptoNote::NodeRpcProxy>(daemonHost, daemonPort);
 
     bool newWallet = false;
 
@@ -1042,9 +1020,7 @@ WalletError WalletBackend::swapNode(std::string daemonHost, uint16_t daemonPort)
     m_walletSynchronizer->stop();
 
     /* Reinit proxy with new daemon */
-    m_daemon = std::make_shared<CryptoNote::NodeRpcProxy>(
-        daemonHost, daemonPort, m_logger->getLogger()
-    );
+    m_daemon = std::make_shared<CryptoNote::NodeRpcProxy>(daemonHost, daemonPort);
 
     std::promise<std::error_code> errorPromise;
     std::future<std::error_code> error = errorPromise.get_future();
