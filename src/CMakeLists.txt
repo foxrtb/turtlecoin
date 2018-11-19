@@ -126,7 +126,12 @@ else()
 endif()
 
 target_link_libraries(zedwallet++ WalletBackend)
-target_link_libraries(WalletApi WalletBackend cpprest ${CMAKE_DL_LIBS})
+
+if (UNIX)
+    target_link_libraries(WalletApi WalletBackend ${CMAKE_DL_LIBS} cpprest)
+else()
+    target_link_libraries(WalletApi WalletBackend cpprest)
+endif()
 
 # Add dependencies means we have to build the latter before we build the former
 # In this case it's because we need to have the current version name rather
