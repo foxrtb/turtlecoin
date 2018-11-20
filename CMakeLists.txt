@@ -187,7 +187,7 @@ if(NOT MSVC)
   endif()
 
   if(UNIX)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ldl")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} -ldl")
   endif()
 endif()
 
