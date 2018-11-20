@@ -160,9 +160,11 @@ WalletError WalletBackend::fromJson(
     m_filename = filename;
     m_password = password;
 
-    m_daemon = std::make_shared<CryptoNote::NodeRpcProxy>(daemonHost, daemonPort);
+    m_daemon = std::make_shared<Nigel>(daemonHost, daemonPort);
 
-    return init();
+    init();
+
+    return SUCCESS;
 }
 
 ////////////////////////

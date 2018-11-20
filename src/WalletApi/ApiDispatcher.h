@@ -6,7 +6,7 @@
 
 #include <WalletBackend/WalletBackend.h>
 
-#include "http_listener.h"
+#include "cpprest/http_listener.h"
 
 class ApiDispatcher
 {

@@ -12,11 +12,11 @@
 #include <cryptopp/sha.h>
 #include <cryptopp/pwdbased.h>
 
+#include <iomanip>
+
 #include "json.hpp"
 
 #include <WalletApi/Constants.h>
-
-#include <WalletBackend/JsonSerialization.h>
 
 using namespace web::http;
 using namespace web::http::experimental::listener;

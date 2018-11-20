@@ -789,7 +789,7 @@ struct COMMAND_RPC_GET_WALLET_SYNC_DATA {
     uint64_t startTimestamp;
 
     void serialize(ISerializer &s) {
-      KV_MEMBER(blockIds);
+      s(blockIds, "blockHashCheckpoints");
       KV_MEMBER(startHeight);
       KV_MEMBER(startTimestamp);
     }
@@ -801,7 +801,7 @@ struct COMMAND_RPC_GET_WALLET_SYNC_DATA {
 
     void serialize(ISerializer &s) {
       KV_MEMBER(status)
-      KV_MEMBER(items)
+      KV_MEMBER(items);
     }
   };
 };

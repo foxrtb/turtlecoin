@@ -55,35 +55,35 @@ void serialize(BlockShortInfo& blockShortInfo, ISerializer& s) {
 
 void serialize(WalletTypes::WalletBlockInfo &walletBlockInfo, ISerializer &s)
 {
-    KV_MEMBER(walletBlockInfo.coinbaseTransaction);
-    KV_MEMBER(walletBlockInfo.transactions);
-    KV_MEMBER(walletBlockInfo.blockHeight);
-    KV_MEMBER(walletBlockInfo.blockHash);
-    KV_MEMBER(walletBlockInfo.blockTimestamp);
+    s(walletBlockInfo.coinbaseTransaction, "coinbaseTX");
+    s(walletBlockInfo.transactions, "transactions");
+    s(walletBlockInfo.blockHeight, "blockHeight");
+    s(walletBlockInfo.blockHash, "blockHash");
+    s(walletBlockInfo.blockTimestamp, "blockTimestamp");
 }
 
 void serialize(WalletTypes::RawTransaction &rawTransaction, ISerializer &s)
 {
-    KV_MEMBER(rawTransaction.keyInputs);
-    KV_MEMBER(rawTransaction.paymentID);
-    KV_MEMBER(rawTransaction.keyOutputs);
-    KV_MEMBER(rawTransaction.hash);
-    KV_MEMBER(rawTransaction.transactionPublicKey);
-    KV_MEMBER(rawTransaction.unlockTime);
+    s(rawTransaction.keyInputs, "inputs");
+    s(rawTransaction.paymentID, "paymentID");
+    s(rawTransaction.keyOutputs, "outputs");
+    s(rawTransaction.hash, "hash");
+    s(rawTransaction.transactionPublicKey, "txPublicKey");
+    s(rawTransaction.unlockTime, "unlockTime");
 }
 
 void serialize(WalletTypes::RawCoinbaseTransaction &rawCoinbaseTransaction, ISerializer &s)
 {
-    KV_MEMBER(rawCoinbaseTransaction.keyOutputs);
-    KV_MEMBER(rawCoinbaseTransaction.hash);
-    KV_MEMBER(rawCoinbaseTransaction.transactionPublicKey);
-    KV_MEMBER(rawCoinbaseTransaction.unlockTime);
+    s(rawCoinbaseTransaction.keyOutputs, "outputs");
+    s(rawCoinbaseTransaction.hash, "hash");
+    s(rawCoinbaseTransaction.transactionPublicKey, "txPublicKey");
+    s(rawCoinbaseTransaction.unlockTime, "unlockTime");
 }
 
 void serialize(WalletTypes::KeyOutput &keyOutput, ISerializer &s)
 {
-    KV_MEMBER(keyOutput.key);
-    KV_MEMBER(keyOutput.amount);
+    s(keyOutput.key, "key");
+    s(keyOutput.amount, "amount");
 }
 
 namespace {

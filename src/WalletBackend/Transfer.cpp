@@ -12,11 +12,6 @@
 #include <CryptoNoteCore/Mixins.h>
 #include <CryptoNoteCore/TransactionExtra.h>
 
-#include <future>
-
-#include <NodeRpcProxy/NodeErrors.h>
-
-#include <WalletBackend/NodeFee.h>
 #include <WalletBackend/Utilities.h>
 #include <WalletBackend/ValidateParameters.h>
 #include <WalletBackend/WalletBackend.h>
@@ -25,11 +20,11 @@ namespace SendTransaction
 {
 
 std::tuple<WalletError, Crypto::Hash> sendFusionTransactionBasic(
-    const std::shared_ptr<CryptoNote::NodeRpcProxy> daemon,
+    const std::shared_ptr<Nigel> daemon,
     const std::shared_ptr<SubWallets> subWallets)
 {
     const auto [minMixin, maxMixin, defaultMixin] = CryptoNote::Mixins::getMixinAllowableRange(
-        daemon->getLastKnownBlockHeight()
+        daemon->networkBlockCount()
     );
 
     /* Assumes the container has at least one subwallet - this is true as long
@@ -45,7 +40,7 @@ std::tuple<WalletError, Crypto::Hash> sendFusionTransactionAdvanced(
     const uint64_t mixin,
     const std::vector<std::string> addressesToTakeFrom,
     std::string destination,
-    const std::shared_ptr<CryptoNote::NodeRpcProxy> daemon,
+    const std::shared_ptr<Nigel> daemon,
     const std::shared_ptr<SubWallets> subWallets)
 {
     if (destination == "")
@@ -56,7 +51,7 @@ std::tuple<WalletError, Crypto::Hash> sendFusionTransactionAdvanced(
     /* Validate the transaction input parameters */
     WalletError error = validateFusionTransaction(
         mixin, addressesToTakeFrom, destination, subWallets,
-        daemon->getLastKnownBlockHeight()
+        daemon->networkBlockCount()
     );
 
     if (error)
@@ -200,7 +195,7 @@ std::tuple<WalletError, Crypto::Hash> sendTransactionBasic(
     std::string destination,
     const uint64_t amount,
     std::string paymentID,
-    const std::shared_ptr<CryptoNote::NodeRpcProxy> daemon,
+    const std::shared_ptr<Nigel> daemon,
     const std::shared_ptr<SubWallets> subWallets)
 {
     std::vector<std::pair<std::string, uint64_t>> destinations = {
@@ -208,7 +203,7 @@ std::tuple<WalletError, Crypto::Hash> sendTransactionBasic(
     };
 
     const auto [minMixin, maxMixin, defaultMixin] = CryptoNote::Mixins::getMixinAllowableRange(
-        daemon->getLastKnownBlockHeight()
+        daemon->networkBlockCount()
     );
 
     const uint64_t fee = WalletConfig::defaultFee;
@@ -230,11 +225,16 @@ std::tuple<WalletError, Crypto::Hash> sendTransactionAdvanced(
     std::string paymentID,
     const std::vector<std::string> addressesToTakeFrom,
     std::string changeAddress,
-    const std::shared_ptr<CryptoNote::NodeRpcProxy> daemon,
+    const std::shared_ptr<Nigel> daemon,
     const std::shared_ptr<SubWallets> subWallets)
 {
     /* Append the fee transaction, if a fee is being used */
-    addressesAndAmounts = NodeFee::appendFeeTransaction(daemon, addressesAndAmounts);
+    const auto [feeAmount, feeAddress] = daemon->nodeFee();
+
+    if (feeAmount != 0)
+    {
+        addressesAndAmounts.push_back({feeAddress, feeAmount});
+    }
 
     if (changeAddress == "")
     {
@@ -244,7 +244,7 @@ std::tuple<WalletError, Crypto::Hash> sendTransactionAdvanced(
     /* Validate the transaction input parameters */
     WalletError error = validateTransaction(
         addressesAndAmounts, mixin, fee, paymentID, addressesToTakeFrom,
-        changeAddress, subWallets, daemon->getLastKnownBlockHeight()
+        changeAddress, subWallets, daemon->networkBlockCount()
     );
 
     if (error)
@@ -300,7 +300,7 @@ std::tuple<WalletError, Crypto::Hash> sendTransactionAdvanced(
         mixin, daemon, ourInputs, paymentID, destinations, subWallets
     );
 
-    error = isTransactionPayloadTooBig(tx, daemon->getLastKnownBlockHeight());
+    error = isTransactionPayloadTooBig(tx, daemon->networkBlockCount());
 
     if (error)
     {
@@ -402,25 +402,17 @@ void storeSentTransaction(
 
 std::tuple<WalletError, Crypto::Hash> relayTransaction(
     const CryptoNote::Transaction tx,
-    const std::shared_ptr<CryptoNote::NodeRpcProxy> daemon)
+    const std::shared_ptr<Nigel> daemon)
 {
-    std::promise<std::error_code> errorPromise = std::promise<std::error_code>();
+    const auto [success, timeout] = daemon->sendTransaction(tx).get();
 
-    auto callback = [&errorPromise](auto e) { errorPromise.set_value(e); };
-
-    daemon->relayTransaction(tx, callback);
-
-    auto error = errorPromise.get_future().get();
-
-    if (error)
+    if (timeout)
     {
-        if (error == make_error_code(CryptoNote::NodeError::CONNECT_ERROR) ||
-            error == make_error_code(CryptoNote::NodeError::NETWORK_ERROR) ||
-            error == make_error_code(CryptoNote::NodeError::NODE_BUSY))
-        {
-            return {DAEMON_OFFLINE, Crypto::Hash()};
-        }
+        return {DAEMON_OFFLINE, Crypto::Hash()};
+    }
 
+    if (!success)
+    {
         return {DAEMON_ERROR, Crypto::Hash()};
     }
 
@@ -463,23 +455,17 @@ std::vector<WalletTypes::TransactionDestination> setupDestinations(
 
 std::tuple<WalletError, std::vector<CryptoNote::RandomOuts>> getRingParticipants(
     const uint64_t mixin,
-    const std::shared_ptr<CryptoNote::NodeRpcProxy> daemon,
+    const std::shared_ptr<Nigel> daemon,
     const std::vector<WalletTypes::TxInputAndOwner> sources)
 {
     /* Request one more than our mixin, then if we get our output as one of
        the mixin outs, we can skip it and still form the transaction */
     uint64_t requestedOuts = mixin + 1;
 
-    std::vector<CryptoNote::RandomOuts> fakeOuts;
-
     if (mixin == 0)
     {
-        return {SUCCESS, fakeOuts};
+        return {SUCCESS, {}};
     }
-
-    std::promise<std::error_code> errorPromise = std::promise<std::error_code>();
-
-    auto callback = [&errorPromise](auto e) { errorPromise.set_value(e); };
 
     std::vector<uint64_t> amounts;
 
@@ -489,15 +475,7 @@ std::tuple<WalletError, std::vector<CryptoNote::RandomOuts>> getRingParticipants
         return destination.input.amount;
     });
 
-    daemon->getRandomOutsByAmounts(
-        std::move(amounts), static_cast<uint16_t>(requestedOuts), fakeOuts, callback
-    );
-
-    /* Wait for the call to complete */
-    if (errorPromise.get_future().get())
-    {
-        return {CANT_GET_FAKE_OUTPUTS, fakeOuts};
-    }
+    const auto fakeOuts = daemon->getRandomOutsByAmounts(amounts, requestedOuts).get();
 
     /* Check we have at least mixin outputs for each fake out. We *may* need
        mixin+1 outs for some, in case our real output gets included. This is
@@ -529,7 +507,7 @@ std::tuple<WalletError, std::vector<CryptoNote::RandomOuts>> getRingParticipants
 std::tuple<WalletError, std::vector<WalletTypes::ObscuredInput>> prepareRingParticipants(
     std::vector<WalletTypes::TxInputAndOwner> sources,
     const uint64_t mixin,
-    const std::shared_ptr<CryptoNote::NodeRpcProxy> daemon)
+    const std::shared_ptr<Nigel> daemon)
 {
     /* Sort our inputs by amount so they match up with the values we get
        back from the daemon */
@@ -866,7 +844,7 @@ Crypto::Hash getTransactionHash(CryptoNote::Transaction tx)
 
 std::tuple<WalletError, CryptoNote::Transaction> makeTransaction(
     const uint64_t mixin,
-    const std::shared_ptr<CryptoNote::NodeRpcProxy> daemon,
+    const std::shared_ptr<Nigel> daemon,
     const std::vector<WalletTypes::TxInputAndOwner> ourInputs,
     const std::string paymentID,
     const std::vector<WalletTypes::TransactionDestination> destinations,
