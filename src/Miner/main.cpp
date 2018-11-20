@@ -18,12 +18,13 @@ int main(int argc, char** argv) {
     CryptoNote::MiningConfig config;
     config.parse(argc, argv);
 
-    Logging::LoggerGroup loggerGroup;
+    const auto loggerGroup = std::make_shared<Logging::LoggerGroup>();
+
     Logging::ConsoleLogger consoleLogger(static_cast<Logging::Level>(config.logLevel));
-    loggerGroup.addLogger(consoleLogger);
+    loggerGroup->addLogger(consoleLogger);
 
     System::Dispatcher dispatcher;
-    Miner::MinerManager app(dispatcher, config, std::make_shared<Logging::LoggerGroup>(loggerGroup));
+    Miner::MinerManager app(dispatcher, config, loggerGroup);
 
     app.start();
   } catch (std::exception& e) {

@@ -23,7 +23,7 @@ LoggerRef::LoggerRef(std::shared_ptr<ILogger> logger, const std::string& categor
 }
 
 LoggerMessage LoggerRef::operator()(Level level, const std::string& color) const {
-  return LoggerMessage(*logger, category, level, color);
+  return LoggerMessage(logger, category, level, color);
 }
 
 std::shared_ptr<ILogger> LoggerRef::getLogger() const {
